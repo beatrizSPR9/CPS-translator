@@ -2,3 +2,8 @@
  (public_name cps)
  (name main)
  (libraries cps))
+
+(executable
+ (public_name pp_coma)
+ (name pp_coma)
+ (libraries cps))
