@@ -12,7 +12,7 @@ let dummy = Lexing.dummy_pos, Lexing.dummy_pos
 
 let mk_atom atom_loc atom_desc = { atom_loc; atom_desc }
 
-let var_id id = mk_atom dummy (AId (mk_id id))
+let var_id id = mk_atom dummy (CAId (mk_id id))
 
 let file = Sys.argv.(1)
 

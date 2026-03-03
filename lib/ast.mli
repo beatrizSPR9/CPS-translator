@@ -21,7 +21,7 @@ type cpattern = {
 and cpattern_desc =
   | CPWild                       (* _ *)
   | CPVar of id                  (* x *)
-  | CPCons of id * cpattern list  (* Cons(x, xs) *)
+  | CPCons of id * cpattern list (* Cons(x, xs) *)
 
 type cexpr = {
   expr_loc: location;

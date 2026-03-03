@@ -43,6 +43,8 @@ let rec pp_pattern ?(_paren=false) fmt {ppat_desc; _} =
       fprintf fmt "@[fun %a@]@ "
         (pp_print_list ~pp_sep:pp_space pp_pattern) non_wild_args (* TODO *)
 
+let pp_id fmt {id_name; _} = fprintf fmt "%s" id_name
+
 let rec pp_expr fmt (e: cexpr) =
   match e.expr_desc with
   | CEAtom a ->
@@ -57,25 +59,18 @@ let rec pp_expr fmt (e: cexpr) =
         (pp_print_list ~pp_sep:pp_space (pp_atom ~curly:true)) al
   | CEIf (a, e1, e2) ->
       fprintf fmt "if @[%a@] @\n (-> %a) @\n @[(%a)@]"
-        (pp_atom ~paren:false ~curly:true) a pp_expr e1 pp_expr e2
-  (* TODO *)
+        (pp_atom ~paren:false ~curly:true) a pp_expr e1 pp_expr e2 (* TODO *)
   | CEMatch (a, pel) ->
       fprintf fmt "@[destruct @[%a@]@\n@[%a@]@]"
         (pp_atom ~paren:false ~curly:true) a
         (pp_print_list ~pp_sep:pp_newline pp_ppat_expr) pel (* TODO *)
-  | CEDestruct (a, pel) -> ()
+  | CEDestruct (a, pel) ->
+      fprintf fmt "@[destruct @[%a@]@\n@[%a@]@]"
+        (pp_atom ~paren:false ~curly:true) a
+        (pp_print_list ~pp_sep:pp_newline pp_ppat_cexpr) pel
 
 and pp_atom ?(paren=false) ?(curly=false) fmt (a: catom) =
   match a.atom_desc with
-  | CACons (c, []) -> fprintf fmt "%s" c.id_name (* TODO *)
-  | CACons (c, [a]) ->
-      fprintf fmt (curly_braces curly "%s %a")
-        c.id_name
-        (pp_atom ~paren:false ~curly:true) a (* TODO *)
-  | CACons (c, al) ->
-      fprintf fmt (curly_braces curly "%s @[%a@]")
-        c.id_name
-        (pp_print_list ~pp_sep:pp_space (pp_atom ~curly:false)) al (* TODO *)
   | CABinop (e1, op, e2) ->
       fprintf fmt
         (protect_on paren (curly_braces curly "@[%a %a %a@]"))
@@ -99,13 +94,16 @@ and pp_atom ?(paren=false) ?(curly=false) fmt (a: catom) =
 
 and pp_ppat_expr fmt (p, e) =
   fprintf fmt "@[<hov 2>(%a->@ @[%a@])@]"
-    (pp_pattern ~_paren:false) p pp_expr e (* TODO *)
+    (pp_pattern ~_paren:false) p pp_expr e 
+
+and pp_ppat_cexpr fmt (p, e) =
+  fprintf fmt "@[<hov 2>(%a->@ @[%a@])@]"
+    (pp_print_list ~pp_sep:pp_space pp_id) p
+    pp_expr e (* TODO *)
 
 let pp_rec fmt = function
   | Recursive -> fprintf fmt " rec"
   | NonRecursive -> ()
-
-let pp_id fmt {id_name; _} = fprintf fmt "%s" id_name
 
 let pp_decl fmt (d: cdeclaration) =
   match d.decl_desc with

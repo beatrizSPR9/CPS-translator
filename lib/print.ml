@@ -37,6 +37,9 @@ let rec pp_pattern ?(paren=false) fmt {ppat_desc; _} =
     fprintf fmt (protect_on paren "%s @[(%a)@]") id.id_name
       (pp_print_list ~pp_sep:pp_coma pp_pattern) args
 
+let pp_id fmt {id_name; _} =
+  fprintf fmt "%s" id_name
+
 let rec pp_expr fmt (e: cexpr) =
   match e.expr_desc with
   | CEAtom a ->
@@ -55,7 +58,10 @@ let rec pp_expr fmt (e: cexpr) =
   | CEMatch (a, pel) ->
       fprintf fmt "@[match @[%a@] with@\n@[%a@]@]"
         (pp_atom ~paren:false) a (pp_print_list ~pp_sep:pp_newline pp_ppat_expr) pel
-  | CEDestruct (a, pel) -> ()
+  | CEDestruct (a, pel) -> 
+      fprintf fmt "@[destruct @[%a@]@\n@[%a@]@]"
+        (pp_atom ~paren:false) a
+        (pp_print_list ~pp_sep:pp_newline pp_ppat_cexpr) pel
 
 and pp_atom ?(paren=false) fmt (a: catom) =
   match a.atom_desc with
@@ -81,12 +87,15 @@ and pp_ppat_expr fmt (p, e) =
   fprintf fmt "@[<hov 4>| %a ->@ @[%a@]@]"
     (pp_pattern ~paren:false) p pp_expr e
 
+and pp_ppat_cexpr fmt (p, e) =
+  fprintf fmt "@[<hov 2>(%a->@ @[%a@])@]"
+    (pp_print_list ~pp_sep:pp_space pp_id) p
+    pp_expr e
+
 let pp_rec fmt = function
   | Recursive -> fprintf fmt " rec"
   | NonRecursive -> ()
 
-let pp_id fmt {id_name; _} =
-  fprintf fmt "%s" id_name
 
 let pp_decl fmt (d: cdeclaration) =
   match d.decl_desc with
