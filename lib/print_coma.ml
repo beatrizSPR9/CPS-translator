@@ -39,8 +39,9 @@ let rec pp_pattern ?(_paren=false) fmt {ppat_desc; _} =
   | PVar x -> fprintf fmt "%s" x.id_name (* FIXME *)
   | PCons (_, []) -> () (* TODO *)
   | PCons (_, args) ->
+      let non_wild_args = List.filter (fun p -> match p.ppat_desc with PWild -> false | _ -> true) args in
       fprintf fmt "@[fun %a@]@ "
-        (pp_print_list ~pp_sep:pp_space pp_pattern) args (* TODO *)
+        (pp_print_list ~pp_sep:pp_space pp_pattern) non_wild_args (* TODO *)
 
 let rec pp_expr fmt (e: expr) =
   match e.expr_desc with
