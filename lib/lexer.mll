@@ -28,6 +28,7 @@ let space = ' ' | '\t'
 rule token = parse
   | '\n' | '\r'  { new_line lexbuf; token lexbuf }
   | space+       { token lexbuf }
+  | '_'          { PWILD }
   | lident as id { id_or_kwd id }
   | uident as id { UIDENT id }
   | integer as s { CONSTANT (CNum (int_of_string s)) }
