@@ -30,7 +30,8 @@ let () =
     let p = Parser.program Lexer.token lb in
     close_in c;
     (* let us assume the program is already in CPS *)
-    eprintf "%a@." Print_coma.pp_program p
+    let coma_p = Ml2coma.program p in
+    eprintf "%a@." Print_coma.pp_program coma_p
   with
   | Lexer.Lexing_error s ->
       report (lexeme_start_p lb, lexeme_end_p lb);
