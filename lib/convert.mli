@@ -1,5 +1,5 @@
 open Ast
 
-val expr : expr -> atom -> expr
+val expr : cexpr -> catom -> cexpr
 
-val program : program -> atom -> program
+val program : cprogram -> catom -> cprogram

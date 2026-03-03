@@ -27,52 +27,53 @@ let pp_op fmt (op: op) =
 
 let rec pp_pattern ?(paren=false) fmt {ppat_desc; _} =
   match ppat_desc with
-  | PWild -> fprintf fmt "_"
-  | PVar x -> fprintf fmt "%s" x.id_name
-  | PCons (id, []) ->
+  | CPWild -> fprintf fmt "_"
+  | CPVar x -> fprintf fmt "%s" x.id_name
+  | CPCons (id, []) ->
     fprintf fmt "%s" id.id_name
-  | PCons (id, [a]) ->
+  | CPCons (id, [a]) ->
     fprintf fmt "%s %a" id.id_name (pp_pattern ~paren:true) a
-  | PCons (id, args) ->
+  | CPCons (id, args) ->
     fprintf fmt (protect_on paren "%s @[(%a)@]") id.id_name
       (pp_print_list ~pp_sep:pp_coma pp_pattern) args
 
-let rec pp_expr fmt (e: expr) =
+let rec pp_expr fmt (e: cexpr) =
   match e.expr_desc with
-  | EAtom a ->
+  | CEAtom a ->
       fprintf fmt "%a" (pp_atom ~paren:true) a
-  | EAssert ->
+  | CEAssert ->
       fprintf fmt "absurd"
-  | ELet (x, e1, e2) ->
+  | CELet (x, e1, e2) ->
       fprintf fmt "let %a =@ @[<hov 2>%a@] in@ @[%a@]"
         (pp_pattern ~paren:false) x pp_expr e1 pp_expr e2
-  | EApp (f, al) ->
+  | CEApp (f, al) ->
       fprintf fmt "@[<hov 2>%a @[%a@]@]" pp_expr f
         (pp_print_list ~pp_sep:pp_space (pp_atom ~paren:true)) al
-  | EIf (a, e1, e2) ->
+  | CEIf (a, e1, e2) ->
       fprintf fmt "if @[%a@] then@ @[%a@]@ else@ @[%a@]"
         (pp_atom ~paren:false) a pp_expr e1 pp_expr e2
-  | EMatch (a, pel) ->
+  | CEMatch (a, pel) ->
       fprintf fmt "@[match @[%a@] with@\n@[%a@]@]"
         (pp_atom ~paren:false) a (pp_print_list ~pp_sep:pp_newline pp_ppat_expr) pel
+  | CEDestruct (a, pel) -> ()
 
-and pp_atom ?(paren=false) fmt (a: atom) =
+and pp_atom ?(paren=false) fmt (a: catom) =
   match a.atom_desc with
-  | ABinop (e1, op, e2) ->
+  | CABinop (e1, op, e2) ->
     fprintf fmt (protect_on paren "@[%a %a %a@]") pp_expr e1 pp_op op
       pp_expr e2
-  | ACst c -> fprintf fmt "%a" pp_constant c
-  | AFun (x, e) ->
+  | CACst c -> fprintf fmt "%a" pp_constant c
+  | CAFun (x, e) ->
     fprintf fmt (protect_on paren "@[fun %s -> @[<hov 2>%a@]@]")
       x.id_name pp_expr e
-  | AId x -> fprintf fmt "%s" x.id_name
-  | ATuple al ->
+  | CAId x -> fprintf fmt "%s" x.id_name
+  | CATuple al ->
     fprintf fmt "@[(%a)@]" (pp_print_list ~pp_sep:pp_coma pp_atom) al
-  | ACons (c, []) -> fprintf fmt "%s" c.id_name
-  | ACons (c, [a]) ->
+  | CACons (c, []) -> fprintf fmt "%s" c.id_name
+  | CACons (c, [a]) ->
     fprintf fmt (protect_on paren "%s %a") c.id_name
       (pp_atom ~paren) a
-  | ACons (c, al) ->
+  | CACons (c, al) ->
     fprintf fmt (protect_on paren "%s @[(%a)@]") c.id_name
       (pp_print_list ~pp_sep:pp_coma pp_atom) al
 
@@ -87,9 +88,9 @@ let pp_rec fmt = function
 let pp_id fmt {id_name; _} =
   fprintf fmt "%s" id_name
 
-let pp_decl fmt (d: declaration) =
+let pp_decl fmt (d: cdeclaration) =
   match d.decl_desc with
-  | DFun (rec_flag, id, args, e) ->
+  | CDFun (rec_flag, id, args, e) ->
       fprintf fmt "@[<hov 2>let%a %s %a@ = %a@]"
         pp_rec rec_flag id.id_name
         (pp_print_list ~pp_sep:pp_space pp_id) args

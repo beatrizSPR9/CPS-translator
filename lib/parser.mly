@@ -8,10 +8,10 @@
   let mk_ppat ppat_loc ppat_desc = { ppat_loc; ppat_desc }
   let mk_nil atom_loc =
     let nil_id = mk_id "Nil" atom_loc in
-    mk_atom atom_loc (ACons (nil_id, []))
+    mk_atom atom_loc (CACons (nil_id, []))
   let mk_cons atom_loc x xs =
     let cons_id = mk_id "Cons" atom_loc in
-    mk_atom atom_loc (ACons (cons_id, [x; xs]))
+    mk_atom atom_loc (CACons (cons_id, [x; xs]))
 %}
 
 %token <string> IDENT
@@ -40,9 +40,9 @@
 %left PIPE
 
 %start program
-%type <Ast.expr> expr
-%type <Ast.expr_desc> expr_desc
-%type <Ast.program> program
+%type <Ast.cexpr> expr
+%type <Ast.cexpr_desc> expr_desc
+%type <Ast.cprogram> program
 
 %%
 
@@ -52,7 +52,7 @@ program:
 
 decl:
 | LET r = rec_flag f = lident args = lident* EQUAL e = expr
-    { mk_decl ($startpos, $endpos) (DFun (r, f, args, e)) }
+    { mk_decl ($startpos, $endpos) (CDFun (r, f, args, e)) }
 ;
 
 lident:
@@ -74,21 +74,21 @@ expr:
 
 expr_desc:
 | a = atom
-    { EAtom a }
+    { CEAtom a }
 | ASSERT c = CONSTANT
     { match c with
-      | CBool false -> EAssert
+      | CBool false -> CEAssert
       | _ -> assert false }
 | LET x = mk_pat EQUAL e1 = expr IN e2 = expr
-    { ELet (x, e1, e2) }
+    { CELet (x, e1, e2) }
 | f = lident args = nonempty_list(atom_arg)
-    { let f_atom = mk_atom f.id_loc (AId f) in
-      let f_expr = mk_expr f.id_loc (EAtom f_atom) in
-      EApp (f_expr, args) }
+    { let f_atom = mk_atom f.id_loc (CAId f) in
+      let f_expr = mk_expr f.id_loc (CEAtom f_atom) in
+      CEApp (f_expr, args) }
 | IF a = atom THEN e1 = expr ELSE e2 = expr
-    { EIf (a, e1, e2) }
+    { CEIf (a, e1, e2) }
 | MATCH a = atom WITH pe = match_cases(expr)
-    { EMatch (a, pe) }
+    { CEMatch (a, pe) }
 ;
 
 %inline match_cases(X):
@@ -103,20 +103,20 @@ mk_pat:
 
 ppat_desc:
 | PWILD
-    { PWild }
+    { CPWild }
 | LSQUARE RSQUARE
-    { PCons (mk_id "Nil" ($startpos, $endpos), []) }
+    { CPCons (mk_id "Nil" ($startpos, $endpos), []) }
 | LSQUARE args = separated_nonempty_list(SEMI, mk_pat) RSQUARE
-    { PCons (mk_id "Cons" ($startpos, $endpos), args) }
+    { CPCons (mk_id "Cons" ($startpos, $endpos), args) }
 | p = mk_pat COLONCOLON ps = mk_pat
-    { PCons (mk_id "Cons" ($startpos, $endpos), [p; ps]) }
+    { CPCons (mk_id "Cons" ($startpos, $endpos), [p; ps]) }
 | x = lident
-    { PVar x }
+    { CPVar x }
 | c = uident p = mk_pat %prec prec_constr_appl
-    { PCons (c, [p]) }
+    { CPCons (c, [p]) }
 | c = uident
   args = loption(delimited(LPAR,comma_list2(mk_pat),RPAR))
-    { PCons (c, args) }
+    { CPCons (c, args) }
 ;
 
 atom:
@@ -130,23 +130,23 @@ atom_:
   
 atom_arg:
 | LPAR a = atom RPAR { a }
-| id = lident        { mk_atom ($startpos, $endpos) (AId id) }
-| c = CONSTANT       { mk_atom ($startpos, $endpos) (ACst c) }
+| id = lident        { mk_atom ($startpos, $endpos) (CAId id) }
+| c = CONSTANT       { mk_atom ($startpos, $endpos) (CACst c) }
 ;
 
 atom_desc:
-| FUN x = lident LARROW e = expr { AFun (x, e) }
-| e1 = expr o = op e2 = expr     { ABinop (e1, o, e2) }
+| FUN x = lident LARROW e = expr { CAFun (x, e) }
+| e1 = expr o = op e2 = expr     { CABinop (e1, o, e2) }
 
 atom_pattern:
 | LSQUARE RSQUARE    { mk_nil ($startpos, $endpos) }
 | a1 = atom_ COLONCOLON a2 = atom_
     { mk_cons ($startpos, $endpos) a1 a2 }
 | c = uident a = atom_ %prec prec_constr_appl
-    { mk_atom ($startpos, $endpos) (ACons (c, [a])) }
+    { mk_atom ($startpos, $endpos) (CACons (c, [a])) }
 | c = uident 
   args = loption(delimited(LPAR,comma_list2(atom_),RPAR))
-    { mk_atom ($startpos, $endpos) (ACons (c, args)) }
+    { mk_atom ($startpos, $endpos) (CACons (c, args)) }
 ;
 
 %inline op:

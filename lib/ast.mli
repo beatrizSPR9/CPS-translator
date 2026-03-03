@@ -1,4 +1,4 @@
-(** An AST for a ML-like toy langauge.
+(** An intermediate AST for a ML-like toy language to COMA.
     All the terms are written in A-normal form to ease
     CPS-conversion later. *)
 
@@ -11,51 +11,54 @@ type constant = CNum of int | CBool of bool
 
 type op = OPAdd | OPMinus | OPMult | OPDiv | OPEq | OPLe
 
-type pattern = {
+type info_p = id list 
+
+type cpattern = {
   ppat_loc: location;
-  ppat_desc: pattern_desc;
+  ppat_desc: cpattern_desc;
 }
 
-and pattern_desc =
-  | PWild                       (* _ *)
-  | PVar of id                  (* x *)
-  | PCons of id * pattern list  (* Cons(x, xs) *)
+and cpattern_desc =
+  | CPWild                       (* _ *)
+  | CPVar of id                  (* x *)
+  | CPCons of id * cpattern list  (* Cons(x, xs) *)
 
-type expr = {
+type cexpr = {
   expr_loc: location;
-  expr_desc: expr_desc;
+  expr_desc: cexpr_desc;
 }
 
-and expr_desc =
-  | EAtom of atom
-  | EAssert
-  | ELet of pattern * expr * expr
-  | EApp of expr * atom list   (* function application *)
-  | EIf of atom * expr * expr
-  | EMatch of atom * (pattern * expr) list
+and cexpr_desc =
+  | CEAtom of catom
+  | CEAssert
+  | CELet of cpattern * cexpr * cexpr
+  | CEApp of cexpr * catom list   (* function application *)
+  | CEIf of catom * cexpr * cexpr
+  | CEMatch of catom * (cpattern * cexpr) list
+  | CEDestruct of catom * (info_p * cexpr) list
 
-and atom = {
+and catom = {
   atom_loc: location;
-  atom_desc: atom_desc;
+  atom_desc: catom_desc;
 }
 
-and atom_desc =
-  | AId of id
-  | ABinop of expr * op * expr
-  | ACst of constant
-  | AFun of id * expr
-  | ATuple of atom list
-  | ACons of id * atom list
+and catom_desc =
+  | CAId of id
+  | CABinop of cexpr * op * cexpr
+  | CACst of constant
+  | CAFun of id * cexpr
+  | CATuple of catom list
+  | CACons of id * catom list
 
-type rec_flag = Recursive | NonRecursive
+type crec_flag = Recursive | NonRecursive
 
-type declaration = {
+type cdeclaration = {
   decl_loc: location;
-  decl_desc: declaration_desc;
+  decl_desc: cdeclaration_desc;
 }
 
 (* id list are the parameters and expr is the body *)
-and declaration_desc =
-  | DFun of rec_flag * id * id list * expr
+and cdeclaration_desc =
+  | CDFun of crec_flag * id * id list * cexpr
 
-type program = declaration list
+type cprogram = cdeclaration list
