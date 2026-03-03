@@ -45,23 +45,28 @@ let rec pp_pattern ?(_paren=false) fmt {cppat_desc; _} =
 
 let pp_id fmt {id_name; _} = fprintf fmt "%s" id_name
 
-let rec pp_expr fmt (e: cexpr) =
+let rec pp_expr ?(_fn_name="") fmt (e: cexpr) =
   match e.cexpr_desc with
   | CEAtom a ->
       fprintf fmt "%a" (pp_atom ~paren:true ~curly:false) a
   | CEAssert -> fprintf fmt "fail"
   | CELet (x, e1, e2) ->
       fprintf fmt "let %a =@ @[<hov 2>%a@] in@ @[%a@]"
-        (pp_pattern ~_paren:false) x pp_expr e1 pp_expr e2 (* TODO *)
+        (pp_pattern ~_paren:false) x
+        (fun fmt e -> pp_expr fmt e) e1
+        (fun fmt e -> pp_expr fmt e) e2 (* TODO *)
   | CEApp (f, al) ->
       fprintf fmt ("@[<hov 2>%a @[%a@]@]")
-        pp_expr f
+        (fun fmt e -> pp_expr fmt e) f
         (pp_print_list ~pp_sep:pp_space (pp_atom ~curly:true)) al
   | CEIf (a, e1, e2) ->
       fprintf fmt "if @[%a@] @\n (-> %a) @\n @[(%a)@]"
-        (pp_atom ~paren:false ~curly:true) a pp_expr e1 pp_expr e2 (* TODO *)
+        (pp_atom ~paren:false ~curly:true) a
+        (fun fmt e -> pp_expr fmt e) e1
+        (fun fmt e -> pp_expr fmt e) e2 (* TODO *)
   | CEDestruct (a, pel) ->
-      fprintf fmt "@[destruct @[%a@]@\n@[%a@]@]"
+      fprintf fmt "@[%s @[%a@]@\n@[%a@]@]"
+        (Ml2coma.handler_name_of_id (_fn_name))
         (pp_atom ~paren:false ~curly:true) a
         (pp_print_list ~pp_sep:pp_newline pp_ppat_cexpr) pel
 
@@ -70,11 +75,13 @@ and pp_atom ?(paren=false) ?(curly=false) fmt (a: catom) =
   | CABinop (e1, op, e2) ->
       fprintf fmt
         (protect_on paren (curly_braces curly "@[%a %a %a@]"))
-        pp_expr e1 pp_op op pp_expr e2 (* TODO *)
+        (fun fmt e -> pp_expr fmt e) e1 pp_op op
+        (fun fmt e -> pp_expr fmt e) e2 (* TODO *)
   | CACst c -> fprintf fmt (curly_braces curly "%a") pp_constant c
   | CAFun (x, e) ->
       fprintf fmt (protect_on true "@[fun %s -> @[<hov 2>%a@]@]")
-        x.id_name pp_expr e
+        x.id_name
+        (fun fmt e -> pp_expr fmt e) e
   | CAId x -> fprintf fmt (curly_braces curly "%s") x.id_name
   | CATuple al ->
       fprintf fmt "@[(%a)@]" (pp_print_list ~pp_sep:pp_coma pp_atom) al (* TODO *)
@@ -90,14 +97,15 @@ and pp_atom ?(paren=false) ?(curly=false) fmt (a: catom) =
 
 and pp_ppat_expr fmt (p, e) =
   fprintf fmt "@[<hov 2>(%a->@ @[%a@])@]"
-    (pp_pattern ~_paren:false) p pp_expr e 
+    (pp_pattern ~_paren:false) p
+    (fun fmt e -> pp_expr fmt e) e 
 
 and pp_ppat_cexpr fmt (p, e) =
   match p with
-  | [] -> fprintf fmt "@[<hov 2>(->@ @[%a@])@]" pp_expr e
+  | [] -> fprintf fmt "@[<hov 2>(->@ @[%a@])@]" (fun fmt e -> pp_expr fmt e) e
   | _ -> fprintf fmt "@[<hov 2>(fun %a->@ @[%a@])@] "
     (pp_print_list ~pp_sep:pp_space pp_id) p
-    pp_expr e (* TODO *)
+    (fun fmt e -> pp_expr fmt e) e (* TODO *)
 
 let pp_rec fmt = function
   | Recursive -> fprintf fmt " rec"
@@ -110,14 +118,24 @@ let pp_decl fmt (d: cdeclaration) =
         pp_rec rec_flag
         id.id_name
         (pp_print_list ~pp_sep:pp_space pp_id) args
-        pp_expr e
+        (fun fmt e -> pp_expr ~_fn_name:(id.id_name) fmt e) e
 
-let pp_handler fmt (h: chandler) =
-  fprintf fmt "@[<hov 2>handler %s %a =@\n%a@]"
-    h.case_id.id_name
-    (pp_print_list ~pp_sep:pp_space pp_id) h.case_args
-    pp_expr h.case_body
+let pp_handler_case fmt (case_id, vars) =
+  match vars with
+  | [] -> fprintf fmt "(%a)" pp_id case_id
+  | _  -> fprintf fmt "(%a %a)"
+            pp_id case_id
+            (pp_print_list ~pp_sep:pp_space pp_id) vars
+
+let pp_handler fmt name (h : Ml2coma.handler) =
+  fprintf fmt "@[<hov 2>let %s (%a)@\n @[%a@]\n= any@]"
+    name
+    pp_id h.arg
+    (pp_print_list ~pp_sep:pp_newline pp_handler_case) h.cases
 
 let pp_program fmt =
-  pp_print_list ~pp_sep:pp_newline_newline pp_handler fmt;
+  Hashtbl.iter (fun name h ->
+    pp_handler fmt name h;
+    pp_newline_newline fmt ()
+  ) Ml2coma.destructs;
   pp_print_list ~pp_sep:pp_newline_newline pp_decl fmt
