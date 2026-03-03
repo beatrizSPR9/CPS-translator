@@ -59,3 +59,62 @@ and declaration_desc =
   | DFun of rec_flag * id * id list * expr
 
 type program = declaration list
+
+
+
+
+
+(* --------------------- *)
+
+(** An intermediate AST for a ML-like toy language to COMA.
+    All the terms are written in A-normal form to ease
+    CPS-conversion later. *)
+
+type info_p = id list 
+
+type cpattern = {
+  cppat_loc: location;
+  cppat_desc: cpattern_desc;
+}
+
+and cpattern_desc =
+  | CPWild                       (* _ *)
+  | CPVar of id                  (* x *)
+  | CPCons of id * cpattern list (* Cons(x, xs) *)
+
+type cexpr = {
+  cexpr_loc: location;
+  cexpr_desc: cexpr_desc;
+}
+
+and cexpr_desc =
+  | CEAtom of catom
+  | CEAssert
+  | CELet of cpattern * cexpr * cexpr
+  | CEApp of cexpr * catom list   (* function application *)
+  | CEIf of catom * cexpr * cexpr
+  | CEDestruct of catom * (info_p * cexpr) list
+
+and catom = {
+  catom_loc: location;
+  catom_desc: catom_desc;
+}
+
+and catom_desc =
+  | CAId of id
+  | CABinop of cexpr * op * cexpr
+  | CACst of constant
+  | CAFun of id * cexpr
+  | CATuple of catom list
+  | CACons of id * catom list
+
+type cdeclaration = {
+  cdecl_loc: location;
+  cdecl_desc: cdeclaration_desc;
+}
+
+(* id list are the parameters and expr is the body *)
+and cdeclaration_desc =
+  | CDFun of rec_flag * id * id list * cexpr
+
+type cprogram = cdeclaration list
