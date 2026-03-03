@@ -6,32 +6,69 @@ let rec pattern_to_args p =
   | PCons (_, args) -> List.concat(List.map pattern_to_args args)
   | PWild -> []
 
-let rec atom a =
+(* ! PATTERN MATCHING HANDLERS CONSTRUCTION *)
+
+(* e.g. for `match t with Empty -> ... | Node(l,_,r) -> ...`
+        arg   = "t"
+        cases = [("is_empty", []); ("is_node", ["l"; "r"])]        *)
+type handler = {
+  arg:   id;
+  cases: (id * id list) list;
+}
+
+(* Hashtable that stores handlers
+    key: handler name (e.g. "destruct_height")
+    value: handler record *)
+let destructs = Hashtbl.create 10
+
+(* "t" -> "destruct_t" *)
+let handler_name_of_id fn_name = "destruct_" ^ fn_name
+
+(* Branch pattern as (case_name, bound_vars) *)
+let case_of_branch p =
+  match p.ppat_desc with
+  | PVar id         -> (id, [])
+  | PCons (cid, ps) -> (cid, List.concat(List.map pattern_to_args ps))
+  | PWild           -> ({ id_name = "_"; id_loc = p.ppat_loc }, [])
+  
+let register_handler fn_name a cases =
+  match a.atom_desc with
+  | AId id ->
+      let key = handler_name_of_id fn_name in
+      if not (Hashtbl.mem destructs key) then
+        Hashtbl.add destructs key
+          { arg = id; cases = List.map (fun (p,_) -> case_of_branch p) cases }
+  | _ -> failwith "A match expression must match on an identifier"
+
+(* ! DEALING WITH ATOMS, EXPRESSIONS AND DECLARATIONS *)
+
+let rec atom fn_name a =
   let desc = 
     match a.atom_desc with
     | AId id -> CAId id
     | ACst c -> CACst c
-    | ABinop (e1, op, e2) -> CABinop (expr e1, op, expr e2)
-    | ATuple al -> CATuple (List.map atom al)
-    | ACons (id, c) -> CACons (id, List.map atom c)
-    | AFun (id, e) -> CAFun (id, expr e) in
+    | ABinop (e1, op, e2) -> CABinop (expr fn_name e1, op, expr fn_name e2)
+    | ATuple al -> CATuple (List.map (atom fn_name) al)
+    | ACons (id, c) -> CACons (id, List.map (atom fn_name) c)
+    | AFun (id, e) -> CAFun (id, expr fn_name e) in
   {catom_loc = a.atom_loc; catom_desc = desc;}
 
 
-and expr e = 
+and expr fn_name e = 
   let desc = 
     match e.expr_desc with
-    | EAtom a -> CEAtom (atom a)
+    | EAtom a -> CEAtom (atom fn_name a)
     | EAssert -> CEAssert
     | ELet (x, e1, e2) ->
-        CELet (pattern x, expr e1, expr e2) (* TODO *)
+        CELet (pattern x, expr fn_name e1, expr fn_name e2) (* TODO *)
     | EApp (f, al) ->
-        CEApp (expr f, List.map atom al) (* TODO *)
+        CEApp (expr fn_name f, List.map (atom fn_name) al) (* TODO *)
     | EIf (a, e1, e2) ->
-        CEIf (atom a, expr e1, expr e2) (* TODO *)
+        CEIf (atom fn_name a, expr fn_name e1, expr fn_name e2) (* TODO *)
     | EMatch (a, pel) ->
-        CEDestruct (atom a, List.map (fun (p,e) -> (pattern_to_args p, expr e)) pel) in
-  
+        register_handler fn_name a pel;
+        CEDestruct (atom fn_name a, 
+          List.map (fun (p,e) -> (pattern_to_args p, expr fn_name e)) pel) in
   {cexpr_loc = e.expr_loc; cexpr_desc = desc;}
 
 and pattern p =
@@ -42,7 +79,10 @@ and pattern p =
     | PWild -> CPWild in
   {cppat_loc = p.ppat_loc; cppat_desc = desc;}
 
-
 let declaration d = 
   match d.decl_desc with
-  | DFun (rec_flag, id, args, e) -> CDFun (rec_flag, id, args, expr e)
+  | DFun (rec_flag, id, args, e) -> 
+      let desc = CDFun (rec_flag, id, args, (expr id.id_name e)) 
+        in {cdecl_loc = d.decl_loc; cdecl_desc = desc}
+
+let program p = List.map declaration p

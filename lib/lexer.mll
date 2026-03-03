@@ -8,7 +8,7 @@
   let id_or_kwd =
     let h = Hashtbl.create 32 in
     List.iter (fun (s, tok) -> Hashtbl.add h s tok)
-      ["let", LET; "if", IF; "then", THEN; "else", ELSE;
+      ["let", LET; "rec", REC; "if", IF; "then", THEN; "else", ELSE;
        "in", IN; "begin", BEGIN; "end", END;
        "match", MATCH; "with", WITH; "fun", FUN;
        "true", CONSTANT (CBool true);
