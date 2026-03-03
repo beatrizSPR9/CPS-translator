@@ -56,7 +56,7 @@ let rec pp_expr fmt (e: expr) =
         pp_expr f
         (pp_print_list ~pp_sep:pp_space (pp_atom ~curly:true)) al
   | EIf (a, e1, e2) ->
-      fprintf fmt "if @[{%a}@] (-> %a) @\n @[(%a)@]"
+      fprintf fmt "if @[%a@] @\n (-> %a) @\n @[(%a)@]"
         (pp_atom ~paren:false ~curly:true) a pp_expr e1 pp_expr e2
   (* TODO *)
   | EMatch (a, pel) ->
