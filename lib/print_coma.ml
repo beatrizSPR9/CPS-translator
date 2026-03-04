@@ -43,12 +43,11 @@ let rec pp_pattern ?(_paren=false) fmt {cppat_desc; _} =
       fprintf fmt "@[fun %a@]@ "
         (pp_print_list ~pp_sep:pp_space pp_pattern) non_wild_args (* TODO *)
 
-let pp_id fmt {id_name; _} = fprintf fmt "%s" id_name
+let pp_id ?(paren=false) fmt {id_name; _} = fprintf fmt (protect_on paren "%s") id_name
 
 let rec pp_expr ?(_fn_name="") fmt (e: cexpr) =
   match e.cexpr_desc with
-  | CEAtom a ->
-      fprintf fmt "%a" (pp_atom ~paren:true ~curly:false) a
+  | CEAtom a -> fprintf fmt "%a" (pp_atom ~paren:true ~curly:false) a
   | CEAssert -> fprintf fmt "fail"
   | CELet (x, e1, e2) ->
       fprintf fmt "let %a =@ @[<hov 2>%a@] in@ @[%a@]"
@@ -63,7 +62,7 @@ let rec pp_expr ?(_fn_name="") fmt (e: cexpr) =
       fprintf fmt "if @[%a@] @\n (-> %a) @\n @[(%a)@]"
         (pp_atom ~paren:false ~curly:true) a
         (fun fmt e -> pp_expr fmt e) e1
-        (fun fmt e -> pp_expr fmt e) e2 (* TODO *)
+        (fun fmt e -> pp_expr fmt e) e2 
   | CEDestruct (a, pel) ->
       fprintf fmt "@[%s @[%a@]@\n@[%a@]@]"
         (Ml2coma.handler_name_of_id (_fn_name))
@@ -76,15 +75,18 @@ and pp_atom ?(paren=false) ?(curly=false) fmt (a: catom) =
       fprintf fmt
         (protect_on paren (curly_braces curly "@[%a %a %a@]"))
         (fun fmt e -> pp_expr fmt e) e1 pp_op op
-        (fun fmt e -> pp_expr fmt e) e2 (* TODO *)
-  | CACst c -> fprintf fmt (curly_braces curly "%a") pp_constant c
+        (fun fmt e -> pp_expr fmt e) e2 
+  | CACst c -> 
+      fprintf fmt (curly_braces curly "%a") 
+        pp_constant c
   | CAFun (x, e) ->
       fprintf fmt (protect_on true "@[fun %s -> @[<hov 2>%a@]@]")
         x.id_name
         (fun fmt e -> pp_expr fmt e) e
   | CAId x -> fprintf fmt (curly_braces curly "%s") x.id_name
   | CATuple al ->
-      fprintf fmt "@[(%a)@]" (pp_print_list ~pp_sep:pp_coma pp_atom) al (* TODO *)
+      fprintf fmt "@[(%a)@]" 
+      (pp_print_list ~pp_sep:pp_coma pp_atom) al (* TODO *)
   | CACons (c, []) -> fprintf fmt "%s" c.id_name (* TODO *)
   | CACons (c, [a]) ->
       fprintf fmt (curly_braces curly "%s %a")
@@ -95,16 +97,11 @@ and pp_atom ?(paren=false) ?(curly=false) fmt (a: catom) =
         c.id_name
         (pp_print_list ~pp_sep:pp_space (pp_atom ~curly:false)) al (* TODO *)
 
-and pp_ppat_expr fmt (p, e) =
-  fprintf fmt "@[<hov 2>(%a->@ @[%a@])@]"
-    (pp_pattern ~_paren:false) p
-    (fun fmt e -> pp_expr fmt e) e 
-
 and pp_ppat_cexpr fmt (p, e) =
   match p with
   | [] -> fprintf fmt "@[<hov 2>(->@ @[%a@])@]" (fun fmt e -> pp_expr fmt e) e
-  | _ -> fprintf fmt "@[<hov 2>(fun %a->@ @[%a@])@] "
-    (pp_print_list ~pp_sep:pp_space pp_id) p
+  | _ -> fprintf fmt "@[<hov 2>(fun %a ->@ @[%a@])@] "
+    (pp_print_list ~pp_sep:pp_space (fun fmt id -> pp_id fmt id)) p
     (fun fmt e -> pp_expr fmt e) e (* TODO *)
 
 let pp_rec fmt = function
@@ -117,20 +114,20 @@ let pp_decl fmt (d: cdeclaration) =
       fprintf fmt "@[<hov 2>let%a %s %a =@\n%a@]"
         pp_rec rec_flag
         id.id_name
-        (pp_print_list ~pp_sep:pp_space pp_id) args
+        (pp_print_list ~pp_sep:pp_space (fun fmt id -> pp_id fmt id)) args
         (fun fmt e -> pp_expr ~_fn_name:(id.id_name) fmt e) e
 
 let pp_handler_case fmt (case_id, vars) =
   match vars with
-  | [] -> fprintf fmt "(%a)" pp_id case_id
+  | [] -> fprintf fmt "(%a)" (fun fmt id -> pp_id fmt id) case_id
   | _  -> fprintf fmt "(%a %a)"
-            pp_id case_id
-            (pp_print_list ~pp_sep:pp_space pp_id) vars
+            (fun fmt id -> pp_id fmt id) case_id
+            (pp_print_list ~pp_sep:pp_space (fun fmt id -> pp_id ~paren:true fmt id)) vars
 
 let pp_handler fmt name (h : Ml2coma.handler) =
   fprintf fmt "@[<hov 2>let %s (%a)@\n @[%a@]\n= any@]"
     name
-    pp_id h.arg
+    (fun fmt id -> pp_id fmt id) h.arg
     (pp_print_list ~pp_sep:pp_newline pp_handler_case) h.cases
 
 let pp_program fmt =
